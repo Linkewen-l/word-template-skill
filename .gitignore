@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local secrets
+.env
+*.env
+!.env.example
+
+# Generated Word artifacts and Office lock files
+*.docx
+*.log.json
+*.run.log
+~$*
+
+# Keep project examples and source tracked explicitly
+!word_template_skill/
+!word_template_skill/**
