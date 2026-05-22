@@ -29,7 +29,10 @@ STYLE_LEVELS = {
 }
 
 SPECIAL_PATENT_TITLES = {
+    "说明书摘要",
+    "摘要附图",
     "技术领域",
+    "技术背景",
     "背景技术",
     "发明内容",
     "附图说明",
@@ -252,4 +255,4 @@ def _normalize_style(style_name: str) -> str:
 
 
 def _normalize_title(title: str) -> str:
-    return re.sub(r"\s+", " ", title or "").strip()
+    return re.sub(r"\s+", " ", title or "").strip().rstrip(":：")

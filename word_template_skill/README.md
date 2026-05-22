@@ -27,6 +27,47 @@ DEEPSEEK_MODEL=deepseek-v4-pro
 
 ## 运行
 
+推荐采用下面的工作区布局：
+
+```text
+your-workspace/
+  templates/
+  topics/
+  word-template-skill/
+    word_template_skill/
+```
+
+每次生成时用 `--template-name` 明确指定模板。若不传 `--output`，程序会按主题自动创建工作目录：
+
+```text
+topics/<主题>/
+  materials/
+  notes/
+  outputs/
+```
+
+示例：
+
+```bash
+python main.py \
+  --template-name "专利模板" \
+  --topic "注意力机制"
+```
+
+输出文件和日志会保存到 `topics/注意力机制/outputs/`。如果同名文件已经存在，会自动生成 `_1`、`_2` 这类不覆盖的新文件名。
+
+如需自定义模板库和主题目录，可额外指定：
+
+```bash
+python main.py \
+  --template-name "作业模板" \
+  --template-dir "/path/to/templates" \
+  --topic "某个研究主题" \
+  --topic-root "/path/to/topics"
+```
+
+也可以继续使用显式路径：
+
 ```bash
 python main.py \
   --template "模板.docx" \
@@ -63,7 +104,9 @@ python main.py \
 - `（一）xxx`, `（二）xxx`
 - `1. xxx`, `1.1 xxx`
 - `第1章 xxx`, `第一章 xxx`
-- `技术领域`, `背景技术`, `发明内容`, `附图说明`, `具体实施方式`, `权利要求书`, `摘要`
+- `说明书摘要`, `摘要附图`, `权利要求书`, `技术领域`, `技术背景`, `背景技术`, `发明内容`, `附图说明`, `具体实施方式`, `摘要`
+
+标题末尾的 `:` 或 `：` 会在识别时自动忽略，例如 `说明书摘要：` 会按 `说明书摘要` 处理。
 
 也可以手动指定：
 

@@ -17,7 +17,10 @@ WritingType = Literal[
 
 
 PATENT_TITLES = {
+    "说明书摘要",
+    "摘要附图",
     "技术领域",
+    "技术背景",
     "背景技术",
     "发明内容",
     "附图说明",
@@ -124,11 +127,15 @@ def build_section_messages(
 
 
 def _type_rules(writing_type: WritingType, title: str, facts: DocumentFacts) -> str:
-    normalized_title = title.strip()
+    normalized_title = title.strip().rstrip(":：")
     if writing_type == "patent":
+        if normalized_title in {"说明书摘要", "摘要"}:
+            return "按中国发明专利说明书摘要习惯，概括技术方案、核心步骤和有益效果，篇幅克制，不写营销化表述。"
+        if normalized_title == "摘要附图":
+            return "按中国发明专利摘要附图习惯，输出一个最能代表技术方案的图号或极简说明；如未给出明确附图，优先选择图1，不要编造不存在的图片细节。"
         if normalized_title == "技术领域":
             return "按中国发明专利写作习惯，说明本发明所属技术领域，避免夸张宣传。"
-        if normalized_title == "背景技术":
+        if normalized_title in {"背景技术", "技术背景"}:
             return "按中国发明专利写作习惯，客观描述现有技术及其不足，突出需要解决的技术问题。"
         if normalized_title == "发明内容":
             return "按中国发明专利写作习惯，写明发明目的、技术方案和有益效果，逻辑完整。"
@@ -140,8 +147,6 @@ def _type_rules(writing_type: WritingType, title: str, facts: DocumentFacts) -> 
             )
         if normalized_title == "具体实施方式":
             return "按中国发明专利写作习惯，围绕主题写完整实施例，步骤和部件关系要清楚。"
-        if normalized_title == "摘要":
-            return "按中国发明专利摘要习惯，控制在合理长度，概括技术方案和效果，不写营销化表述。"
         if normalized_title == "权利要求书":
             return "按中国发明专利权利要求格式撰写，使用编号条款，独立权利要求在前，从属权利要求在后。"
         return "整体按中国发明专利申请文件语气撰写，技术效果和技术特征要对应。"

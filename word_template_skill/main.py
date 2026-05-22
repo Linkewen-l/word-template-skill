@@ -18,19 +18,49 @@ from utils import (
     now_iso,
     parse_bool,
     parse_skip_sections,
+    prepare_topic_workspace,
     resolve_docx_path,
+    resolve_template_argument,
     setup_logging,
     write_json_log,
 )
+
+WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_TEMPLATE_DIR = WORKSPACE_ROOT / "templates"
+DEFAULT_TOPIC_ROOT = WORKSPACE_ROOT / "topics"
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate content section-by-section from a Word template using DeepSeek.",
     )
-    parser.add_argument("--template", required=True, help="Path to the input .docx template.")
+    parser.add_argument("--template", default=None, help="Path to the input .docx template.")
+    parser.add_argument(
+        "--template-name",
+        default=None,
+        help="Name of a .docx template inside --template-dir. The .docx suffix is optional.",
+    )
+    parser.add_argument(
+        "--template-dir",
+        default=str(DEFAULT_TEMPLATE_DIR),
+        help=f"Directory that stores reusable templates. Default: {DEFAULT_TEMPLATE_DIR}",
+    )
     parser.add_argument("--topic", required=True, help="Topic, technical proposal, patent, or report request.")
-    parser.add_argument("--output", required=True, help="Path to the generated .docx output.")
+    parser.add_argument(
+        "--topic-root",
+        default=str(DEFAULT_TOPIC_ROOT),
+        help=f"Directory that stores per-topic workspaces. Default: {DEFAULT_TOPIC_ROOT}",
+    )
+    parser.add_argument(
+        "--topic-folder",
+        default=None,
+        help="Optional folder name for this topic workspace. Defaults to a sanitized topic name.",
+    )
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Path to the generated .docx output. If omitted, an output path is created under --topic-root.",
+    )
     parser.add_argument("--model", default=None, help="DeepSeek model name. Defaults to DEEPSEEK_MODEL.")
     parser.add_argument("--temperature", type=float, default=0.3, help="Model temperature.")
     parser.add_argument("--max-tokens", type=int, default=4096, help="Max tokens per section.")
@@ -69,8 +99,23 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
     load_environment()
 
-    template_path = resolve_docx_path(args.template)
-    requested_output = resolve_docx_path(args.output)
+    template_dir = Path(args.template_dir).expanduser().resolve()
+    topic_root = Path(args.topic_root).expanduser().resolve()
+    template_path = resolve_template_argument(
+        template=args.template,
+        template_name=args.template_name,
+        template_dir=template_dir,
+    )
+    topic_dir: Path | None = None
+    if args.output:
+        requested_output = resolve_docx_path(args.output)
+    else:
+        requested_output, topic_dir = prepare_topic_workspace(
+            topic=args.topic,
+            template_path=template_path,
+            topic_root=topic_root,
+            topic_folder=args.topic_folder,
+        )
     overwrite = parse_bool(args.overwrite)
     output_path = ensure_output_path(template_path, requested_output, overwrite)
     json_log_path = default_log_path(output_path)
@@ -80,8 +125,11 @@ def main(argv: list[str] | None = None) -> int:
     run_log: dict[str, Any] = {
         "created_at": now_iso(),
         "template": str(template_path),
+        "template_dir": str(template_dir),
         "output": str(output_path),
         "topic": args.topic,
+        "topic_root": str(topic_root),
+        "topic_dir": str(topic_dir) if topic_dir is not None else "",
         "model": args.model,
         "section_mode": args.section_mode,
         "status": "started",
