@@ -26,6 +26,7 @@ from heading_detector import HeadingNode
 
 PLACEHOLDER_PATTERN = re.compile(
     r"^\s*(?:"
+    r"【?请填写.{0,30}】?|"
     r"【?请.{0,8}填写】?|"
     r"此处填写.*|"
     r"待补充.*|"
