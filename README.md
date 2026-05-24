@@ -22,6 +22,8 @@ your-workspace/
 
 If your folders live somewhere else, use `--template-dir` and `--topic-root` to override the defaults.
 
+The repository can also track reusable templates under `templates/` for backup and sharing. Topic workspaces under `topics/` are intentionally kept local and are not committed.
+
 ## Quick Start
 
 Install dependencies:

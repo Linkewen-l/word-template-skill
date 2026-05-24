@@ -16,6 +16,13 @@ __pycache__/
 *.run.log
 ~$*
 
+# Local topic workspaces stay outside version control
+topics/
+
+# Track reusable project templates checked into the repo
+!templates/
+!templates/**/*.docx
+
 # Keep project examples and source tracked explicitly
 !word_template_skill/
 !word_template_skill/**
