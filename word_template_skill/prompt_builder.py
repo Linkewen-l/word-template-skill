@@ -39,6 +39,7 @@ class SectionContext:
     outline: str
     writing_type: WritingType
     document_facts: DocumentFacts
+    workflow_context: str = ""
 
 
 def infer_writing_type(topic: str, headings: list[HeadingNode]) -> WritingType:
@@ -70,6 +71,7 @@ def build_section_messages(
     heading = context.heading
     type_rules = _type_rules(context.writing_type, heading.title, context.document_facts)
     sample_text = heading.sample_text.strip() or "无。"
+    workflow_context = context.workflow_context.strip() or "无。"
 
     system = (
         "你是严谨的中文 Word 文档写作助手。你的输出会被直接插入 Word 模板的当前标题之后。"
@@ -106,6 +108,9 @@ def build_section_messages(
 当前标题下模板已有示例文字或占位内容:
 {sample_text}
 
+资料分析与问答补充上下文:
+{workflow_context}
+
 当前章节写作规则:
 {type_rules}
 
@@ -132,7 +137,7 @@ def _type_rules(writing_type: WritingType, title: str, facts: DocumentFacts) -> 
         if normalized_title in {"说明书摘要", "摘要"}:
             return "按中国发明专利说明书摘要习惯，概括技术方案、核心步骤和有益效果，篇幅克制，不写营销化表述。"
         if normalized_title == "摘要附图":
-            return "按中国发明专利摘要附图习惯，输出一个最能代表技术方案的图号或极简说明；如未给出明确附图，优先选择图1，不要编造不存在的图片细节。"
+            return "按中国发明专利摘要附图习惯，输出最能代表技术方案的图号或极简说明；如未给出明确附图，优先选择图1，不编造不存在的图形细节。"
         if normalized_title == "技术领域":
             return "按中国发明专利写作习惯，说明本发明所属技术领域，避免夸张宣传。"
         if normalized_title in {"背景技术", "技术背景"}:
@@ -142,7 +147,7 @@ def _type_rules(writing_type: WritingType, title: str, facts: DocumentFacts) -> 
         if normalized_title == "附图说明":
             return (
                 "按中国发明专利写作习惯说明附图。"
-                f"模板检测到的内嵌图片/形状数量为 {facts.inline_shape_count}，不要假设固定图片数量。"
+                f"模板检测到的内嵌图像/形状数量为 {facts.inline_shape_count}，不要假设固定附图数量。"
                 "如模板或用户主题没有给出明确图号，仅生成克制、可调整的附图说明。"
             )
         if normalized_title == "具体实施方式":

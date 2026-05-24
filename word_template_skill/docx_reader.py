@@ -6,7 +6,7 @@ from pathlib import Path
 try:
     from docx import Document
     from docx.document import Document as DocumentObject
-except ImportError as exc:  # pragma: no cover - surfaced at runtime by main
+except ImportError as exc:  # pragma: no cover
     raise RuntimeError("python-docx is required. Install dependencies with pip install -r requirements.txt") from exc
 
 

@@ -6,7 +6,7 @@ from typing import Iterable, Literal, Optional
 
 try:
     from docx.text.paragraph import Paragraph
-except ImportError:  # pragma: no cover - surfaced at runtime by main
+except ImportError:  # pragma: no cover
     Paragraph = object  # type: ignore[assignment,misc]
 
 
@@ -28,6 +28,7 @@ STYLE_LEVELS = {
     "标题3": 3,
 }
 
+
 SPECIAL_PATENT_TITLES = {
     "说明书摘要",
     "摘要附图",
@@ -40,6 +41,7 @@ SPECIAL_PATENT_TITLES = {
     "权利要求书",
     "摘要",
 }
+
 
 COMMON_SKIP_TITLES = {
     "封面",
@@ -83,7 +85,6 @@ class HeadingNode:
 
 
 def detect_headings(paragraphs: Iterable[Paragraph], mode: DetectionMode = "auto") -> list[HeadingNode]:
-    """Detect headings, preferring built-in Word heading styles in auto mode."""
     paragraph_list = list(paragraphs)
     style_headings = _detect_by_style(paragraph_list)
 
@@ -218,9 +219,9 @@ def _looks_like_heading_text(text: str) -> bool:
         r"^[一二三四五六七八九十百]+、\S+",
         r"^（[一二三四五六七八九十百]+）\S+",
         r"^\([一二三四五六七八九十百]+\)\S+",
-        r"^\d+(?:\.\d+){0,3}[\.、]?\s+\S+",
-        r"^第\s*\d+\s*章\s+\S+",
-        r"^第\s*[一二三四五六七八九十百]+\s*章\s+\S+",
+        r"^\d+(?:\.\d+){0,3}[\.、]?\s*\S+",
+        r"^第\s*\d+\s*章\s*\S+",
+        r"^第\s*[一二三四五六七八九十百]+\s*章\s*\S+",
     )
     return any(re.match(pattern, normalized) for pattern in patterns)
 
@@ -229,9 +230,7 @@ def _text_heading_level(text: str) -> int:
     normalized = _normalize_title(text)
     if normalized in SPECIAL_PATENT_TITLES or normalized.lower() in COMMON_SKIP_TITLES:
         return 1
-    if re.match(r"^（[一二三四五六七八九十百]+）", normalized) or re.match(
-        r"^\([一二三四五六七八九十百]+\)", normalized
-    ):
+    if re.match(r"^（[一二三四五六七八九十百]+）", normalized) or re.match(r"^\([一二三四五六七八九十百]+\)", normalized):
         return 2
     number_match = re.match(r"^(\d+(?:\.\d+){0,3})", normalized)
     if number_match:

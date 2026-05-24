@@ -75,6 +75,34 @@ python main.py \
   --output "生成结果.docx"
 ```
 
+如果要走“代码事实解析 + 大模型专利点抽取”的两段式专利流程，可使用：
+
+```bash
+python main.py \
+  --workflow-mode question \
+  --topic "一种基于多模态数据融合的设备故障诊断方法" \
+  --concept-file "concept.txt" \
+  --materials model.py train.py
+```
+
+这会先把材料保存到 `topics/<主题>/materials/`，然后依次产出：
+
+- `notes/materials_analysis_latest.md`：程序解析出的代码事实与候选实现特征
+- `notes/patent_points_latest.md`：大模型抽取出的核心专利点、可选专利点和工程细节分层
+- `notes/questions_latest.md`：基于抽取结果生成的 5 个贴代码问题
+
+拿到 5 个回答之后，可以继续运行：
+
+```bash
+python main.py \
+  --workflow-mode generate \
+  --output-mode draft \
+  --topic "一种基于多模态数据融合的设备故障诊断方法" \
+  --concept-file "concept.txt" \
+  --answers-file "answers.md" \
+  --materials model.py train.py
+```
+
 可选参数：
 
 ```bash

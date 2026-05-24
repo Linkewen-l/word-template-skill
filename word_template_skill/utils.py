@@ -126,8 +126,12 @@ def setup_logging(log_path: Path) -> logging.Logger:
     logger.handlers.clear()
 
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-
-    file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    fallback_log_path = log_path.parent / "workflow.run.log"
+    try:
+        file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
+    except OSError:
+        file_handler = logging.FileHandler(fallback_log_path, mode="w", encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
@@ -150,7 +154,7 @@ def now_iso() -> str:
 def parse_skip_sections(raw: str | None) -> set[str]:
     if not raw:
         return set()
-    parts = re.split(r"[,，;；\n]+", raw)
+    parts = re.split(r"[,，、\n]+", raw)
     return {part.strip() for part in parts if part.strip()}
 
 

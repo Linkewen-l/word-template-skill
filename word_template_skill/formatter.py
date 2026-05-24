@@ -20,7 +20,6 @@ EXPLANATION_PREFIXES = (
 
 
 def normalize_generated_text(text: str) -> str:
-    """Remove wrappers that should not be inserted into Word."""
     cleaned = (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
     cleaned = re.sub(r"```(?:\w+)?", "", cleaned)
     cleaned = cleaned.replace("```", "")
@@ -38,7 +37,6 @@ def normalize_generated_text(text: str) -> str:
 
 
 def split_generated_paragraphs(text: str) -> list[str]:
-    """Split model output into Word paragraphs while keeping simple line breaks."""
     cleaned = normalize_generated_text(text)
     if not cleaned:
         return []
@@ -59,7 +57,6 @@ def split_generated_paragraphs(text: str) -> list[str]:
 def copy_paragraph_format(target: Paragraph, reference: Optional[Paragraph]) -> None:
     if reference is None:
         return
-
     try:
         target.style = reference.style
     except Exception:
@@ -112,7 +109,6 @@ def clear_paragraph_content(paragraph: Paragraph) -> None:
 def copy_run_format(target: Run, reference: Optional[Run]) -> None:
     if reference is None:
         return
-
     try:
         if reference.style is not None:
             target.style = reference.style
@@ -152,7 +148,6 @@ def first_text_run(paragraph: Optional[Paragraph]) -> Optional[Run]:
 
 
 def clone_paragraph_properties_without_numbering(target: Paragraph, reference: Optional[Paragraph]) -> None:
-    """Copy low-level paragraph properties but avoid numbering definitions."""
     if reference is None or reference._p.pPr is None:
         return
     cloned = copy.deepcopy(reference._p.pPr)

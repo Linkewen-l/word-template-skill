@@ -33,7 +33,7 @@ PLACEHOLDER_PATTERN = re.compile(
     r"XXX+|"
     r"xxx+|"
     r"\.{3,}|"
-    r"…+|"
+    r"……|"
     r"_{3,}|"
     r"-{3,}"
     r")\s*$"
@@ -65,7 +65,6 @@ def write_generated_sections(
     sections: list[SectionWriteRequest],
     logger: Optional[logging.Logger] = None,
 ) -> list[SectionWriteResult]:
-    """Copy template to a temp output and insert generated content in-place."""
     logger = logger or logging.getLogger(__name__)
     temp_path = output_path.with_name(f".{output_path.stem}.{uuid.uuid4().hex}.tmp{output_path.suffix}")
 
