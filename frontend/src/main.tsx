@@ -90,7 +90,7 @@ function App() {
   const [dryRun, setDryRun] = useState(true);
   const [materials, setMaterials] = useState<FileList | null>(null);
   const [answers, setAnswers] = useState<string[]>(["", "", "", "", ""]);
-  const [outputMode, setOutputMode] = useState<"draft" | "template">("draft");
+  const outputMode: "template" = "template";
   const [notice, setNotice] = useState("");
 
   const activeJob = useMemo(
@@ -300,7 +300,7 @@ function App() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Step 1</p>
-              <h2>上传材料并生成 5 个问题</h2>
+              <h2>上传材料并生成 5 个专利写作问题</h2>
             </div>
             <label className="toggle">
               <input checked={dryRun} onChange={(event) => setDryRun(event.target.checked)} type="checkbox" />
@@ -347,7 +347,7 @@ function App() {
               <input multiple onChange={(event) => setMaterials(event.target.files)} type="file" />
             </label>
             <button className="primary" type="submit">
-              生成问题
+              生成写作问题
             </button>
           </div>
           {notice ? <p className="notice">{notice}</p> : null}
@@ -371,12 +371,9 @@ function App() {
             <div className="section-header">
               <div>
                 <p className="eyebrow">Step 2</p>
-                <h2>回答 5 个澄清问题</h2>
+                <h2>回答 5 个专利写作问题</h2>
               </div>
-              <select value={outputMode} onChange={(event) => setOutputMode(event.target.value as "draft" | "template")}>
-                <option value="draft">草稿 md</option>
-                <option value="template">模板 Word</option>
-              </select>
+              <span className="output-target">最终输出：Word 文档（docx）</span>
             </div>
             <div className="question-stack">
               {activeJob.questions.slice(0, 5).map((question, index) => (
@@ -402,7 +399,7 @@ function App() {
           </form>
         ) : null}
 
-        {activeJob?.artifacts.length ? <Artifacts title="当前任务产物" artifacts={activeJob.artifacts} /> : null}
+        {activeJob?.artifacts.length ? <Artifacts title="当前任务交付文件" artifacts={activeJob.artifacts} /> : null}
       </section>
     </main>
   );
@@ -434,9 +431,12 @@ function ProgressView({ progress }: { progress: JobProgress }) {
         <div className="recent-files">
           <p>最近生成</p>
           {progress.recent_artifacts.map((artifact) => (
-            <a href={`${API}/artifacts/download?path=${encodeURIComponent(artifact.path)}`} key={artifact.path}>
-              {artifact.name}
-            </a>
+            <div className="recent-file-row" key={artifact.path}>
+              <a href={`${API}/artifacts/download?path=${encodeURIComponent(artifact.path)}`}>
+                {artifact.name}
+              </a>
+              <time dateTime={artifact.updated_at}>{formatDateTime(artifact.updated_at)}</time>
+            </div>
           ))}
         </div>
       ) : null}
@@ -494,6 +494,7 @@ function Artifacts({
             <div className="table-row" key={artifact.path}>
               <span>{artifact.name}</span>
               <small>{artifact.kind}</small>
+              <time dateTime={artifact.updated_at}>{formatDateTime(artifact.updated_at)}</time>
               <small>{formatBytes(artifact.size_bytes)}</small>
               {artifact.downloadable ? (
                 <a href={`${API}/artifacts/download?path=${encodeURIComponent(artifact.path)}`}>下载</a>
@@ -525,6 +526,19 @@ function formatBytes(value: number) {
     return `${(value / 1024).toFixed(1)} KB`;
   }
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatDateTime(value: string) {
+  if (!value) {
+    return "-";
+  }
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return value.replace("T", " ");
+  }
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 createRoot(document.getElementById("root") as HTMLElement).render(<App />);

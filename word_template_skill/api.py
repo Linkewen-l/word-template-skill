@@ -49,7 +49,7 @@ class Job:
 
 class AnswerRequest(BaseModel):
     answers: list[str] = Field(min_length=5, max_length=5)
-    output_mode: Literal["draft", "template"] = "draft"
+    output_mode: Literal["draft", "template"] = "template"
     template_name: str | None = None
     dry_run: bool | None = None
 
@@ -132,7 +132,7 @@ async def api_start_questions(
         template_name=template_name,
         topic_dir=str(topic_dir),
         stage="question",
-        message="Generating five clarification questions.",
+        message="正在生成 5 个专利写作问题。",
     )
     _put_job(job)
 
@@ -154,7 +154,7 @@ async def api_submit_answers(job_id: str, request: AnswerRequest) -> dict[str, s
         job_id,
         status="pending",
         stage="generate",
-        message="Queued final generation.",
+        message="已提交最终 Word 文档生成。",
         output_mode=request.output_mode,
         template_name=request.template_name,
         dry_run=dry_run,
@@ -196,7 +196,7 @@ async def _save_materials(files: list[UploadFile], materials_dir: Path) -> None:
 
 
 def _run_questions_job(job_id: str, topic: str, concept: str, dry_run: bool) -> None:
-    _update_job(job_id, status="running", stage="question", message="Analyzing materials and extracting questions.")
+    _update_job(job_id, status="running", stage="question", message="正在分析材料并提炼专利写作问题。")
     try:
         result = run_question_workflow(topic=topic, concept=concept, dry_run=dry_run)
         if result.exit_code != 0:
@@ -206,7 +206,7 @@ def _run_questions_job(job_id: str, topic: str, concept: str, dry_run: bool) -> 
             job_id,
             status="waiting_answers",
             stage="waiting_answers",
-            message="Five questions are ready.",
+            message="5 个专利写作问题已生成。",
             questions=result.questions,
             artifacts=result.artifacts,
             topic_dir=str(result.topic_dir),
@@ -223,7 +223,7 @@ def _run_generate_job(
     template_name: str | None,
     dry_run: bool,
 ) -> None:
-    _update_job(job_id, status="running", stage="generate", message="Generating final document.")
+    _update_job(job_id, status="running", stage="generate", message="正在生成最终文档。")
     try:
         result = run_generate_workflow(
             topic=topic,
@@ -239,7 +239,7 @@ def _run_generate_job(
             job_id,
             status="completed",
             stage="completed",
-            message="Generation completed.",
+            message="最终文档已生成。",
             questions=result.questions,
             artifacts=result.artifacts,
             topic_dir=str(result.topic_dir),
@@ -264,13 +264,23 @@ def _mark_failed(job_id: str, exc: Exception) -> None:
 def _job_payload(job: Job) -> dict[str, object]:
     payload = asdict(job)
     artifacts = job.artifacts
+    progress_artifacts = artifacts
     if job.topic_dir:
         topic_dir = Path(job.topic_dir)
         if topic_dir.exists():
-            artifacts = collect_artifacts(topic_dir)
+            started_at = _job_started_at(job)
+            progress_artifacts = collect_artifacts(topic_dir, since=started_at)
+            artifacts = collect_artifacts(topic_dir, since=started_at, public_only=True)
             payload["artifacts"] = artifacts
-    payload["progress"] = _build_progress(job, artifacts)
+    payload["progress"] = _build_progress(job, progress_artifacts)
     return payload
+
+
+def _job_started_at(job: Job) -> datetime | None:
+    try:
+        return datetime.fromisoformat(job.created_at)
+    except ValueError:
+        return None
 
 
 def _build_progress(job: Job, artifacts: list[dict[str, str | int | float | bool]]) -> dict[str, object]:
@@ -289,7 +299,7 @@ def _build_progress(job: Job, artifacts: list[dict[str, str | int | float | bool
             ("materials", "保存上传材料", bool(job.topic_dir)),
             ("analysis", "分析材料内容", "materials_analysis_latest.md" in names),
             ("patent_points", "抽取专利点", "patent_points_latest.md" in names),
-            ("questions", "生成 5 个问题", "questions_latest.md" in names or bool(job.questions)),
+            ("questions", "生成 5 个专利写作问题", "questions_latest.md" in names or bool(job.questions)),
             ("waiting", "等待填写回答", job.status in {"waiting_answers", "completed"}),
         ]
 
@@ -316,7 +326,7 @@ def _build_progress(job: Job, artifacts: list[dict[str, str | int | float | bool
 
     current_step = next((step["label"] for step in steps if step["status"] in {"active", "failed"}), steps[-1]["label"])
     recent_artifacts = sorted(
-        artifacts,
+        [item for item in artifacts if str(item.get("kind", "")) == "outputs"],
         key=lambda item: str(item.get("updated_at", "")),
         reverse=True,
     )[:5]

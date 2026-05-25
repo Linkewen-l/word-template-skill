@@ -261,6 +261,17 @@ textarea {
   width: auto;
 }
 
+.output-target {
+  background: #eef7f4;
+  border: 1px solid #c7ded7;
+  border-radius: 8px;
+  color: #1d6f5a;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+
 .notice {
   background: #fff3d6;
   border: 1px solid #e8c870;
@@ -439,6 +450,20 @@ textarea {
   text-decoration: none;
 }
 
+.recent-file-row {
+  align-items: baseline;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) auto;
+}
+
+.recent-file-row time,
+.table-row time {
+  color: #68787b;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .question-stack {
   display: grid;
   gap: 14px;
@@ -458,7 +483,7 @@ textarea {
   align-items: center;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(180px, 1fr) 90px 90px 72px;
+  grid-template-columns: minmax(180px, 1fr) 90px 160px 90px 72px;
   min-height: 48px;
   padding: 10px 12px;
 }
@@ -493,7 +518,17 @@ textarea {
   .field-grid,
   .file-row,
   .status-band,
+  .recent-file-row,
   .table-row {
     grid-template-columns: 1fr;
+  }
+
+  .section-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .output-target {
+    white-space: normal;
   }
 }

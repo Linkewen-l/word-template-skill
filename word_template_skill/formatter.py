@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+import html
 import re
+from dataclasses import dataclass
 from typing import Optional
 
 from docx.enum.text import WD_BREAK
@@ -18,9 +20,27 @@ EXPLANATION_PREFIXES = (
     "下面是",
 )
 
+HTML_SCRIPT_PATTERN = re.compile(r"<\s*(sub|sup)\b[^>]*>(.*?)<\s*/\s*\1\s*>", re.IGNORECASE | re.DOTALL)
+HTML_BREAK_PATTERN = re.compile(r"<\s*br\s*/?\s*>", re.IGNORECASE)
+HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
+SCRIPTABLE_CHAR_CLASS = r"A-Za-zΑ-Ωα-ω"
+SCRIPT_VALUE_CLASS = r"A-Za-z0-9Α-Ωα-ω"
+SCRIPT_PATTERN = re.compile(
+    rf"(?<![{SCRIPTABLE_CHAR_CLASS}])"
+    rf"([{SCRIPTABLE_CHAR_CLASS}])\s*([_^])\s*(?:\{{([^{{}}]+)\}}|([{SCRIPT_VALUE_CLASS}]+))"
+)
+
+
+@dataclass(frozen=True)
+class RichTextToken:
+    text: str
+    script: str = ""
+
 
 def normalize_generated_text(text: str) -> str:
     cleaned = (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    cleaned = html.unescape(cleaned)
+    cleaned = HTML_BREAK_PATTERN.sub("\n", cleaned)
     cleaned = re.sub(r"```(?:\w+)?", "", cleaned)
     cleaned = cleaned.replace("```", "")
     lines = [line.rstrip() for line in cleaned.split("\n")]
@@ -85,12 +105,8 @@ def copy_paragraph_format(target: Paragraph, reference: Optional[Paragraph]) -> 
 
 
 def add_text_with_reference_run(paragraph: Paragraph, text: str, reference_run: Optional[Run]) -> None:
-    lines = text.split("\n")
-    run = paragraph.add_run(lines[0] if lines else "")
-    copy_run_format(run, reference_run)
-    for line in lines[1:]:
-        run.add_break(WD_BREAK.LINE)
-        run.add_text(line)
+    for token in _parse_rich_text_tokens(text):
+        _add_rich_text_token(paragraph, token, reference_run)
 
 
 def clear_paragraph_content(paragraph: Paragraph) -> None:
@@ -176,3 +192,62 @@ def _copy_rfonts(target: Run, reference: Run) -> None:
 
 def _looks_like_list_line(line: str) -> bool:
     return bool(re.match(r"^([-•]\s+|\d+[\.、]\s+)", line.strip()))
+
+
+def _parse_rich_text_tokens(text: str) -> list[RichTextToken]:
+    text = html.unescape(HTML_BREAK_PATTERN.sub("\n", text or ""))
+    tokens: list[RichTextToken] = []
+    position = 0
+    for match in HTML_SCRIPT_PATTERN.finditer(text):
+        tokens.extend(_parse_plain_script_tokens(text[position : match.start()]))
+        script = "sub" if match.group(1).lower() == "sub" else "sup"
+        inner = HTML_TAG_PATTERN.sub("", html.unescape(match.group(2)))
+        tokens.append(RichTextToken(inner, script))
+        position = match.end()
+    tokens.extend(_parse_plain_script_tokens(text[position:]))
+    return _merge_rich_text_tokens(tokens)
+
+
+def _parse_plain_script_tokens(text: str) -> list[RichTextToken]:
+    text = HTML_TAG_PATTERN.sub("", text)
+    tokens: list[RichTextToken] = []
+    position = 0
+    for match in SCRIPT_PATTERN.finditer(text):
+        tokens.append(RichTextToken(text[position : match.start()]))
+        base, marker, grouped, simple = match.groups()
+        tokens.append(RichTextToken(base))
+        tokens.append(RichTextToken(grouped or simple or "", "sub" if marker == "_" else "sup"))
+        position = match.end()
+    tokens.append(RichTextToken(text[position:]))
+    return tokens
+
+
+def _merge_rich_text_tokens(tokens: list[RichTextToken]) -> list[RichTextToken]:
+    merged: list[RichTextToken] = []
+    for token in tokens:
+        if not token.text:
+            continue
+        if merged and merged[-1].script == token.script:
+            merged[-1] = RichTextToken(merged[-1].text + token.text, token.script)
+        else:
+            merged.append(token)
+    return merged
+
+
+def _add_rich_text_token(paragraph: Paragraph, token: RichTextToken, reference_run: Optional[Run]) -> None:
+    parts = token.text.split("\n")
+    for index, part in enumerate(parts):
+        if index:
+            break_run = paragraph.add_run()
+            copy_run_format(break_run, reference_run)
+            break_run.add_break(WD_BREAK.LINE)
+        if not part:
+            continue
+        run = paragraph.add_run(part)
+        copy_run_format(run, reference_run)
+        if token.script == "sub":
+            run.font.subscript = True
+            run.font.superscript = False
+        elif token.script == "sup":
+            run.font.superscript = True
+            run.font.subscript = False

@@ -146,9 +146,15 @@ def run_generate_workflow(
     )
 
 
-def collect_artifacts(topic_dir: Path) -> list[dict[str, str | int | float | bool]]:
+def collect_artifacts(
+    topic_dir: Path,
+    *,
+    since: datetime | None = None,
+    public_only: bool = False,
+) -> list[dict[str, str | int | float | bool]]:
     topic_dir = topic_dir.resolve()
     artifacts: list[dict[str, str | int | float | bool]] = []
+    since_timestamp = since.timestamp() if since is not None else None
     for folder_name in ("outputs", "notes"):
         folder = topic_dir / folder_name
         if not folder.exists():
@@ -157,6 +163,10 @@ def collect_artifacts(topic_dir: Path) -> list[dict[str, str | int | float | boo
             if not path.is_file():
                 continue
             stat = path.stat()
+            if since_timestamp is not None and stat.st_mtime < since_timestamp:
+                continue
+            if public_only and not _is_public_artifact(path, folder_name):
+                continue
             artifacts.append(
                 {
                     "name": path.name,
@@ -168,6 +178,12 @@ def collect_artifacts(topic_dir: Path) -> list[dict[str, str | int | float | boo
                 }
             )
     return artifacts
+
+
+def _is_public_artifact(path: Path, kind: str) -> bool:
+    if kind != "outputs":
+        return False
+    return path.suffix.lower() == ".docx"
 
 
 def collect_topic_files(topic_name: str) -> dict[str, object]:
