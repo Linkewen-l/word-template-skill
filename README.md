@@ -33,6 +33,28 @@ cd word_template_skill
 python -m pip install -r requirements.txt
 ```
 
+## Web UI
+
+The project also includes a local FastAPI + React interface for the full workflow:
+
+```bash
+cd word_template_skill
+python -m pip install -r requirements.txt
+
+cd ..
+python -m uvicorn word_template_skill.api:app --host 127.0.0.1 --port 8010
+```
+
+In another terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5176 --strictPort
+```
+
+Open `http://127.0.0.1:5176/`. The Vite dev server proxies `/api` to `http://127.0.0.1:8010`.
+
 Create a `.env` file in `word_template_skill/`:
 
 ```bash

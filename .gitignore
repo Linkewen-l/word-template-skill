@@ -5,6 +5,10 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
 # Local secrets
 .env
 *.env
@@ -26,3 +30,7 @@ topics/
 # Keep project examples and source tracked explicitly
 !word_template_skill/
 !word_template_skill/**
+word_template_skill/.env
+word_template_skill/*.env
+word_template_skill/**/__pycache__/
+word_template_skill/**/*.py[cod]

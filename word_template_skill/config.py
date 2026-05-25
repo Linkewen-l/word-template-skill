@@ -40,6 +40,7 @@ def load_environment(env_file: Optional[Path] = None) -> None:
         return
 
     load_dotenv()
+    load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
 
 def load_deepseek_config(
