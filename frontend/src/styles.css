@@ -161,6 +161,7 @@ a {
 .answers-form,
 .artifact-table,
 .artifact-section,
+.figure-prompts,
 .status-band {
   background: #ffffff;
   border: 1px solid #dce4e3;
@@ -329,6 +330,20 @@ textarea {
   color: #8c2424;
   overflow: auto;
   padding: 12px;
+}
+
+.figure-prompts pre {
+  background: #fbfcfc;
+  border: 1px solid #dce4e3;
+  border-radius: 8px;
+  color: #172026;
+  line-height: 1.65;
+  margin: 0;
+  max-height: 460px;
+  overflow: auto;
+  padding: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .progress-panel {

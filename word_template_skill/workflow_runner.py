@@ -27,6 +27,7 @@ class WorkflowResult:
     topic_dir: Path
     questions: list[str]
     artifacts: list[dict[str, str | int | float | bool]]
+    figure_prompts: str = ""
     error: str | None = None
 
 
@@ -101,6 +102,7 @@ def run_question_workflow(*, topic: str, concept: str, dry_run: bool) -> Workflo
         topic_dir=topic_dir,
         questions=questions,
         artifacts=collect_artifacts(topic_dir),
+        figure_prompts=_load_figure_prompts(topic_dir),
         error=_latest_error(topic_dir, "question"),
     )
 
@@ -142,6 +144,7 @@ def run_generate_workflow(
         topic_dir=topic_dir,
         questions=_load_questions(topic_dir),
         artifacts=collect_artifacts(topic_dir),
+        figure_prompts=_load_figure_prompts(topic_dir),
         error=_latest_error(topic_dir, "generate"),
     )
 
@@ -244,6 +247,13 @@ def _load_questions(topic_dir: Path) -> list[str]:
         return []
     questions = parse_numbered_items(latest.read_text(encoding="utf-8"))
     return [item for item in questions if not item.lstrip().startswith("#")][:5]
+
+
+def _load_figure_prompts(topic_dir: Path) -> str:
+    latest = topic_dir / "notes" / "figure_prompts_latest.md"
+    if not latest.exists():
+        return ""
+    return latest.read_text(encoding="utf-8").strip()
 
 
 def _format_answers(answers: list[str]) -> str:

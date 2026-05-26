@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -379,6 +380,7 @@ def _run_template_generation(
     client = _build_generation_client(args=args, config=config, logger=logger)
     skip_titles = parse_skip_sections(args.skip_sections)
     write_requests: list[SectionWriteRequest] = []
+    figure_prompt_notes: list[str] = []
 
     for heading in headings:
         section_log: dict[str, Any] = {
@@ -414,7 +416,14 @@ def _run_template_generation(
 
         if result.ok:
             section_log["status"] = "generated"
-            write_requests.append(SectionWriteRequest(heading=heading, content=result.response))
+            cleaned_response, section_figure_notes = _extract_frontend_figure_notes(
+                section_title=heading.title,
+                text=result.response,
+            )
+            if section_figure_notes:
+                figure_prompt_notes.extend(section_figure_notes)
+                section_log["frontend_figure_notes"] = section_figure_notes
+            write_requests.append(SectionWriteRequest(heading=heading, content=cleaned_response))
         else:
             section_log["status"] = "failed"
             section_log["reason"] = result.error or "DeepSeek returned empty content."
@@ -433,6 +442,16 @@ def _run_template_generation(
         _merge_write_results(run_log["sections"], write_results)
     else:
         logger.warning("No generated sections to write. Output file was not created.")
+
+    if figure_prompt_notes:
+        notes_dir = Path(str(run_log["notes_dir"]))
+        figure_prompt_path = save_text_artifact(
+            notes_dir,
+            "figure_prompts",
+            _format_frontend_figure_notes(args.topic, figure_prompt_notes),
+            latest_name="figure_prompts_latest.md",
+        )
+        run_log["figure_prompts_note"] = str(figure_prompt_path)
 
     failed_count = sum(1 for item in run_log["sections"] if item["status"] == "failed")
     run_log["status"] = "completed_with_failures" if failed_count else "completed"
@@ -502,6 +521,7 @@ def _run_draft_generation(
     facts = DocumentFacts(paragraph_count=0, table_count=0, inline_shape_count=0, section_count=0, has_toc_like_text=False)
     outline = build_outline(headings)
     sections_md: list[str] = [f"# {args.topic}"]
+    figure_prompt_notes: list[str] = []
 
     for heading in headings:
         section_log: dict[str, Any] = {
@@ -527,8 +547,15 @@ def _run_draft_generation(
         section_log["model_call"] = result.to_log_dict()
         if result.ok:
             section_log["status"] = "generated"
+            cleaned_response, section_figure_notes = _extract_frontend_figure_notes(
+                section_title=heading.title,
+                text=result.response,
+            )
+            if section_figure_notes:
+                figure_prompt_notes.extend(section_figure_notes)
+                section_log["frontend_figure_notes"] = section_figure_notes
             sections_md.append(f"\n## {heading.title}\n")
-            sections_md.append(result.response.strip())
+            sections_md.append(cleaned_response.strip())
         else:
             section_log["status"] = "failed"
             section_log["reason"] = result.error or "DeepSeek returned empty content."
@@ -536,6 +563,15 @@ def _run_draft_generation(
         run_log["sections"].append(section_log)
 
     output_path.write_text("\n\n".join(sections_md).strip() + "\n", encoding="utf-8")
+    if figure_prompt_notes:
+        notes_dir = Path(str(run_log["notes_dir"]))
+        figure_prompt_path = save_text_artifact(
+            notes_dir,
+            "figure_prompts",
+            _format_frontend_figure_notes(args.topic, figure_prompt_notes),
+            latest_name="figure_prompts_latest.md",
+        )
+        run_log["figure_prompts_note"] = str(figure_prompt_path)
     failed_count = sum(1 for item in run_log["sections"] if item["status"] == "failed")
     run_log["status"] = "completed_with_failures" if failed_count else "completed"
     run_log["log_file"] = str(json_log_path)
@@ -628,6 +664,84 @@ def _merge_write_results(section_logs: list[dict[str, Any]], write_results: list
             section_log["reason"] = result.reason
 
 
+FRONTEND_FIGURE_MARKER = "【前端附图信息】"
+FIGURE_NOTE_PATTERN = re.compile(r"(图片生成提示词|图片来源)\s*[:：]\s*(.+)")
+FIGURE_LABEL_PATTERN = re.compile(r"(图\s*\d+)")
+ACADEMIC_FIGURE_STYLE_PROMPT = (
+    "参考用户示例图的论文级技术机制图效果，不画普通单线流程图。白色背景，16:9横版，高密度多分区结构；"
+    "中间放核心主流程或总架构，周围布置带小标题的功能分区，分区使用灰色或彩色虚线边框、浅色底纹和细黑线。"
+    "图中包含输入、预处理/特征提取、关键算法模块、融合/判别、输出结果之间的箭头关系，模块名称必须具体。"
+    "分区内部绘制小型子模块、嵌套框、符号节点、加号/乘号/门控/权重/掩码等机制元素；"
+    "可嵌入小曲线图、热力图、频谱图、矩阵块、局部放大框、公式说明框或图例。"
+    "配色克制：时域/主干浅蓝，频域浅橙，融合浅绿，分类或输出浅紫，重点路径用蓝色或绿色箭头，"
+    "关键高亮区域可用红色虚线框。全部使用简体中文标签，字体接近思源黑体/微软雅黑，线条细，箭头清晰，"
+    "布局紧凑但不拥挤，高清矢量质感，分辨率不低于3840×2160。不要3D、不要卡通、不要照片风、不要深色背景、不要装饰性海报。"
+)
+
+
+def _extract_frontend_figure_notes(*, section_title: str, text: str) -> tuple[str, list[str]]:
+    normalized = (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    notes: list[str] = []
+
+    if FRONTEND_FIGURE_MARKER in normalized:
+        before, _, after = normalized.partition(FRONTEND_FIGURE_MARKER)
+        marker_notes = _format_figure_note_block(section_title, after.strip())
+        if marker_notes:
+            notes.append(marker_notes)
+        normalized = before.strip()
+
+    cleaned_lines: list[str] = []
+    context_lines: list[str] = []
+    for line in normalized.splitlines():
+        stripped = line.strip()
+        match = FIGURE_NOTE_PATTERN.search(stripped)
+        if match:
+            prefix = match.group(1)
+            value = match.group(2).strip()
+            context = _latest_figure_context(context_lines)
+            notes.append(_format_figure_note_block(section_title, f"{context}\n{prefix}：{value}".strip()))
+            before = stripped[: match.start()].strip()
+            if before:
+                cleaned_lines.append(before)
+                context_lines.append(before)
+            continue
+        cleaned_lines.append(line.rstrip())
+        if stripped:
+            context_lines.append(stripped)
+
+    cleaned = "\n".join(cleaned_lines).strip()
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned, [note for note in notes if note.strip()]
+
+
+def _latest_figure_context(lines: list[str]) -> str:
+    for line in reversed(lines[-4:]):
+        if FIGURE_LABEL_PATTERN.search(line):
+            return line
+    return ""
+
+
+def _format_figure_note_block(section_title: str, content: str) -> str:
+    cleaned = re.sub(r"\n{3,}", "\n\n", (content or "").strip())
+    if not cleaned:
+        return ""
+    return f"## {section_title}\n\n{cleaned}"
+
+
+def _format_frontend_figure_notes(topic: str, notes: list[str]) -> str:
+    unique_notes: list[str] = []
+    seen: set[str] = set()
+    for note in notes:
+        normalized = note.strip()
+        if not normalized or normalized in seen:
+            continue
+        unique_notes.append(normalized)
+        seen.add(normalized)
+    lines = [f"# 图片生成提示词", "", f"主题：{topic}", ""]
+    lines.extend("\n\n".join(unique_notes).splitlines())
+    return "\n".join(lines).strip() + "\n"
+
+
 def _build_generation_client(*, args: argparse.Namespace, config, logger):
     if args.dry_run:
         return DryRunClient(config=config, logger=logger)
@@ -683,15 +797,35 @@ def _dry_run_content(section_title: str) -> str:
     "最后在从属权利要求中补充融合机制、训练优化和输入同步约束。"
   ]
 }""",
-        "摘要": "本发明公开了一种用于测试工作流的占位摘要内容，用于验证资料入库、问题澄清和模板写回流程是否正常。",
+        "摘要": (
+            "本发明公开了一种用于测试工作流的占位摘要内容，用于验证资料入库、问题澄清和模板写回流程是否正常。\n\n"
+            "【前端附图信息】\n\n"
+            "摘要附图：图1。\n\n"
+            "图1为资料驱动型文档生成流程的摘要附图。\n\n"
+            "图片生成提示词：绘制资料驱动型文档生成流程示意图，包含资料输入、代码事实分析、问题澄清、答案归一化、逐章节生成、Word模板写回和输出文档等模块；"
+            f"{ACADEMIC_FIGURE_STYLE_PROMPT}"
+        ),
         "权利要求书": "1. 一种用于测试工作流的专利生成方法，其特征在于，包括资料入库、问题澄清、答案归一化以及模板生成步骤。\n\n2. 根据权利要求1所述的方法，其特征在于，资料入库步骤包括将代码文件保存到对应主题目录的materials中。",
         "技术领域": "本发明属于专利文本自动生成与文档模板写回技术领域。",
         "技术背景": "现有流程通常仅基于主题字符串直接生成文稿，难以充分利用代码文件和用户补充构想。",
         "发明内容": "本发明提供一种资料驱动型专利生成流程，通过先分析代码和构想，再提出关键问题并依据回答生成专利内容，提高内容一致性与可迭代性。",
-        "附图说明": "图1为资料驱动型专利生成工作流示意图。",
+        "附图说明": (
+            "图1为资料驱动型专利生成工作流示意图。\n\n"
+            "图1示意从资料输入、代码事实分析、问题澄清、答案归一化到逐章节生成和Word模板写回的完整流程。\n\n"
+            "图片生成提示词：绘制资料驱动型专利生成工作流示意图，包含资料输入、代码事实分析、专利点提取、问题澄清、答案归一化、逐章节生成、Word模板写回和输出文档等模块；"
+            f"{ACADEMIC_FIGURE_STYLE_PROMPT}\n\n"
+            "图2为模型训练效果曲线示意图。\n\n"
+            "图2用于展示训练过程中损失值、准确率或宏平均F1值随轮次变化的实验结果。\n\n"
+            "图片来源：由代码运行生成（例如由 plot_training_history 函数输出训练曲线图片）。"
+        ),
         "具体实施方式": "在一个实施例中，系统先创建主题目录并保存代码文件，再分析代码和构想，输出5个问题，在获得回答后生成专利草案并写回模板。",
         "说明书摘要": "本发明公开了一种资料驱动型专利生成方法，用于测试当前工作流的完整链路。",
-        "摘要附图": "图1。",
+        "摘要附图": (
+            "图1。\n\n"
+            "图1为最能代表本技术方案的整体流程示意图。\n\n"
+            "图片生成提示词：绘制当前主题的整体技术方案流程示意图，模块名称和箭头关系根据主题、代码结构和章节上下文确定；"
+            f"{ACADEMIC_FIGURE_STYLE_PROMPT}"
+        ),
     }
     return examples.get(section_title, f"这是“{section_title}”章节的 dry-run 占位内容，用于测试状态机改造后的完整流程。")
 

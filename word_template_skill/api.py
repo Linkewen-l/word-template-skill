@@ -42,6 +42,7 @@ class Job:
     topic_dir: str | None = None
     questions: list[str] = field(default_factory=list)
     artifacts: list[dict[str, str | int | float | bool]] = field(default_factory=list)
+    figure_prompts: str = ""
     error: str | None = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
@@ -209,6 +210,7 @@ def _run_questions_job(job_id: str, topic: str, concept: str, dry_run: bool) -> 
             message="5 个专利写作问题已生成。",
             questions=result.questions,
             artifacts=result.artifacts,
+            figure_prompts=result.figure_prompts,
             topic_dir=str(result.topic_dir),
         )
     except Exception as exc:  # noqa: BLE001
@@ -242,6 +244,7 @@ def _run_generate_job(
             message="最终文档已生成。",
             questions=result.questions,
             artifacts=result.artifacts,
+            figure_prompts=result.figure_prompts,
             topic_dir=str(result.topic_dir),
         )
     except Exception as exc:  # noqa: BLE001

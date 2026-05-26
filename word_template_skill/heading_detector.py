@@ -32,6 +32,7 @@ STYLE_LEVELS = {
 SPECIAL_PATENT_TITLES = {
     "说明书摘要",
     "摘要附图",
+    "说明书附图",
     "技术领域",
     "技术背景",
     "背景技术",

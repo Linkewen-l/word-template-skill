@@ -47,6 +47,7 @@ type Job = {
   topic_dir: string | null;
   questions: string[];
   artifacts: Artifact[];
+  figure_prompts: string;
   error: string | null;
   created_at: string;
   updated_at: string;
@@ -399,9 +400,25 @@ function App() {
           </form>
         ) : null}
 
+        {activeJob?.figure_prompts ? <FigurePrompts content={activeJob.figure_prompts} /> : null}
+
         {activeJob?.artifacts.length ? <Artifacts title="当前任务交付文件" artifacts={activeJob.artifacts} /> : null}
       </section>
     </main>
+  );
+}
+
+function FigurePrompts({ content }: { content: string }) {
+  return (
+    <section className="figure-prompts">
+      <div className="section-header">
+        <div>
+          <p className="eyebrow">Figure Prompts</p>
+          <h2>图片生成提示词</h2>
+        </div>
+      </div>
+      <pre>{content}</pre>
+    </section>
   );
 }
 
